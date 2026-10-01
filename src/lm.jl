@@ -89,6 +89,9 @@ Minimize `F(x) = ||f(x)||^2` using the Levenberg-Marquardt algorithm.
     - `1`: both actual and predicted reductions are less than `ftol`
     - `2`: relative difference between two consecutive iterates is less than `xtol`
     - `3`: inf norm of the gradient is less than `gtol`
+    - `4`: the trial step fell below `xtol` without reducing the objective: no
+        further reduction is possible from `x` (a minimum to working precision,
+        or a stall, e.g. a Jacobian inconsistent with `fun!`; check the gradient)
     - `-1`: `maxit` reached
 - `iter::Int`: number of iterations
 - `nfev::Int`: number of function evaluations
@@ -350,10 +353,15 @@ function _lmsolve!(
 
             # check step size
             if all(>(0), (@. w = abs(p) < ϵx * (ϵx + abs(x))))
+                # an accepted step below xtol is convergence in x (2); a
+                # rejected one means no step of this size reduces the
+                # objective: no further reduction is possible (4)
                 if accepted
                     x, f, F = xk, fk, Fk
+                    converged = 2
+                else
+                    converged = 4
                 end
-                converged = 2
                 break
             end
         end
@@ -563,10 +571,15 @@ function _lmsolve(
 
             # check step size
             if all(>(0), (@. abs(p) < ϵx * (ϵx + abs(x))))
+                # an accepted step below xtol is convergence in x (2); a
+                # rejected one means no step of this size reduces the
+                # objective: no further reduction is possible (4)
                 if accepted
                     x, f, F = xk, fk, Fk
+                    converged = 2
+                else
+                    converged = 4
                 end
-                converged = 2
                 break
             end
         end

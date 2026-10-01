@@ -260,3 +260,39 @@ end
         end
     end
 end
+
+
+# A negligible trial step that did NOT reduce the objective is not convergence in
+# `x`: it reports `4` (no further reduction possible), not `2`.
+@testset "rejected negligible step" begin
+    # f(x) = x - 3 with a wrong-sign Jacobian: no step along the LM direction
+    # descends, so every trial is rejected and the damping grows until the step
+    # is below xtol, at the start point.
+    f(x, _) = SA[x[1] - 3.0]
+    j(x, _) = SA[-1.0;;]
+    x, F, converged, = lmsolve(f, j, SA[0.0])
+    @test converged == 4
+    @test x == SA[0.0] && F == 9.0
+
+    f!(r, x, _) = (r[1] = x[1] - 3.0; r)
+    j!(J, x, _) = (J[1, 1] = -1.0; J)
+    x, F, converged, = lmsolve!(f!, j!, [0.0], 1)
+    @test converged == 4
+    @test x == [0.0] && F == 9.0
+
+    # A domain wall: the objective is NaN past x > 0.5, so the minimizer x = 3
+    # is unreachable and every trial past the wall is rejected.
+    g(x, _) = SA[x[1] > 0.5 ? NaN : x[1] - 3.0]
+    jg(x, _) = SA[1.0;;]
+    x, F, converged, = lmsolve(g, jg, SA[0.0])
+    @test converged == 4
+    @test x[1] <= 0.5
+
+    # A well-posed problem still converges with a positive code and reaches
+    # its minimizer.
+    h(x, _) = SA[x[1] - 3.0, 2 * (x[2] + 1.0)]
+    jh(x, _) = SA[1.0 0.0; 0.0 2.0]
+    x, F, converged, = lmsolve(h, jh, SA[0.0, 0.0])
+    @test converged > 0
+    @test x ≈ SA[3.0, -1.0]
+end
